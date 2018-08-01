@@ -1,0 +1,7 @@
+udma_jtag_fifo:
+  files: [
+    rtl/udma_jtag_fifo_reg_if.sv,
+    rtl/udma_jtag_fifo_sm.sv,
+    rtl/udma_jtag_fifo_top.sv,
+  ]
+
