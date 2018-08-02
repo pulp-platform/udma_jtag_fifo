@@ -18,7 +18,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-module udma_uart_top #(
+module udma_jtag_fifo_top #(
     parameter L2_AWIDTH_NOAL = 12,
     parameter TRANS_SIZE     = 16
 ) (

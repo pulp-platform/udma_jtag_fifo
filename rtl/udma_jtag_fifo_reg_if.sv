@@ -32,7 +32,7 @@
 `define REG_STATUS       5'b01000 //BASEADDR+0x20
 `define REG_UART_SETUP   5'b01001 //BASEADDR+0x24
 
-module udma_uart_reg_if #(
+module udma_jtag_fifo_reg_if #(
     parameter L2_AWIDTH_NOAL = 12,
     parameter TRANS_SIZE     = 16
 ) (
