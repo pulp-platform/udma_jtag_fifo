@@ -31,7 +31,6 @@ module udma_jtag_fifo_top #(
     input  logic                      jtag_trstn_i,
 
     input  logic                      jtag_shift_dr_i,
-    input  logic                      jtag_pause_dr_i,
     input  logic                      jtag_update_dr_i,
     input  logic                      jtag_capture_dr_i,
 
@@ -44,7 +43,6 @@ module udma_jtag_fifo_top #(
 
     output logic [L2_AWIDTH_NOAL-1:0] cfg_rx_startaddr_o,
     output logic     [TRANS_SIZE-1:0] cfg_rx_size_o,
-    output logic                [1:0] cfg_rx_datasize_o,
     output logic                      cfg_rx_continuous_o,
     output logic                      cfg_rx_en_o,
     output logic                      cfg_rx_clr_o,
@@ -55,7 +53,6 @@ module udma_jtag_fifo_top #(
 
     output logic [L2_AWIDTH_NOAL-1:0] cfg_tx_startaddr_o,
     output logic     [TRANS_SIZE-1:0] cfg_tx_size_o,
-    output logic                [1:0] cfg_tx_datasize_o,
     output logic                      cfg_tx_continuous_o,
     output logic                      cfg_tx_en_o,
     output logic                      cfg_tx_clr_o,
@@ -87,6 +84,9 @@ module udma_jtag_fifo_top #(
     logic         s_data_rx_dc_valid;
     logic         s_data_rx_dc_ready;
     logic  [31:0] s_data_rx_dc;
+
+    assign data_rx_datasize_o = 'h0;
+    assign data_tx_datasize_o = 'h0;
 
     udma_jtag_fifo_reg_if #(
         .L2_AWIDTH_NOAL(L2_AWIDTH_NOAL),
@@ -177,7 +177,6 @@ module udma_jtag_fifo_top #(
         .jtag_trstn_i     ( jtag_trstn_i      ),
 
         .jtag_shift_dr_i  ( jtag_shift_dr_i   ),
-        .jtag_pause_dr_i  ( jtag_pause_dr_i   ),
         .jtag_update_dr_i ( jtag_update_dr_i  ),
         .jtag_capture_dr_i( jtag_capture_dr_i ),
 

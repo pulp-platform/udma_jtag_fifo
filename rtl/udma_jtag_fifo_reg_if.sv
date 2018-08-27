@@ -64,16 +64,8 @@ module udma_jtag_fifo_reg_if #(
     input  logic                      cfg_tx_en_i,
     input  logic                      cfg_tx_pending_i,
     input  logic [L2_AWIDTH_NOAL-1:0] cfg_tx_curr_addr_i,
-    input  logic     [TRANS_SIZE-1:0] cfg_tx_bytes_left_i,
+    input  logic     [TRANS_SIZE-1:0] cfg_tx_bytes_left_i
 
-    input  logic               [2:0]  status_i,
-    output logic                      err_clr_o,
-    output logic                      stop_bits_o,
-    output logic                      parity_en_o,
-    output logic              [15:0]  divider_o,
-    output logic               [1:0]  num_bits_o,
-    output logic                      en_rx_o,
-    output logic                      en_tx_o
 );
 
     logic [L2_AWIDTH_NOAL-1:0] r_rx_startaddr;
@@ -112,13 +104,6 @@ module udma_jtag_fifo_reg_if #(
     assign cfg_tx_continuous_o = r_tx_continuous;
     assign cfg_tx_en_o         = r_tx_en;
     assign cfg_tx_clr_o        = r_tx_clr;
-
-    assign en_tx_o         = r_uart_en_tx;
-    assign en_rx_o         = r_uart_en_rx;
-    assign divider_o       = r_uart_div;
-    assign num_bits_o      = r_uart_bits;
-    assign parity_en_o     = r_uart_parity_en;
-    assign stop_bits_o     = r_uart_stop_bits;
 
     always_ff @(posedge clk_i, negedge rstn_i) 
     begin
@@ -191,7 +176,6 @@ module udma_jtag_fifo_reg_if #(
     always_comb
     begin
         cfg_data_o = 32'h0;
-        err_clr_o = 1'b0;
         case (s_rd_addr)
         `REG_RX_SADDR:
             cfg_data_o = cfg_rx_curr_addr_i;
@@ -207,11 +191,6 @@ module udma_jtag_fifo_reg_if #(
             cfg_data_o = {26'h0,cfg_tx_pending_i,cfg_tx_en_i,3'h0,r_tx_continuous};
         `REG_UART_SETUP:
             cfg_data_o = {r_uart_div, 6'h0, r_uart_en_rx, r_uart_en_tx, 4'h0, r_uart_stop_bits,r_uart_bits, r_uart_parity_en};
-        `REG_STATUS:
-        begin
-            cfg_data_o = {29'h0,status_i};
-	        err_clr_o = 1'b1;
-	    end
         default:
             cfg_data_o = 'h0;
         endcase
