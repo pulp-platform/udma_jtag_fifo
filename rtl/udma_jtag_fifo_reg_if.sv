@@ -34,7 +34,8 @@
 
 module udma_jtag_fifo_reg_if #(
     parameter L2_AWIDTH_NOAL = 12,
-    parameter TRANS_SIZE     = 16
+    parameter TRANS_SIZE     = 16,
+    parameter CFG_WIDTH      = 13
 ) (
 	input  logic 	                  clk_i,
 	input  logic   	                  rstn_i,
@@ -46,8 +47,13 @@ module udma_jtag_fifo_reg_if #(
 	output logic               [31:0] cfg_data_o,
 	output logic                      cfg_ready_o,
 
+    input  logic      [CFG_WIDTH-1:0] setup_value_i,
+    input  logic                      setup_valid_i,
+    output logic                      setup_ack_o,
+
     output logic [L2_AWIDTH_NOAL-1:0] cfg_rx_startaddr_o,
     output logic     [TRANS_SIZE-1:0] cfg_rx_size_o,
+    output logic                [1:0] cfg_rx_dsize_o,
     output logic                      cfg_rx_continuous_o,
     output logic                      cfg_rx_en_o,
     output logic                      cfg_rx_clr_o,
@@ -58,6 +64,7 @@ module udma_jtag_fifo_reg_if #(
 
     output logic [L2_AWIDTH_NOAL-1:0] cfg_tx_startaddr_o,
     output logic     [TRANS_SIZE-1:0] cfg_tx_size_o,
+    output logic                [1:0] cfg_tx_dsize_o,
     output logic                      cfg_tx_continuous_o,
     output logic                      cfg_tx_en_o,
     output logic                      cfg_tx_clr_o,
@@ -68,42 +75,72 @@ module udma_jtag_fifo_reg_if #(
 
 );
 
+    localparam SETUP_DSIZE_BEGIN = 56;
+    localparam SETUP_DSIZE_END   = 55;
+    localparam SETUP_TXRXN       = 54;
+    localparam SETUP_ADDR_BEGIN  = 53;
+    localparam SETUP_ADDR_END    = 22;
+    localparam SETUP_SIZE_BEGIN  = 21;
+    localparam SETUP_SIZE_END    =  0;
+
     logic [L2_AWIDTH_NOAL-1:0] r_rx_startaddr;
     logic   [TRANS_SIZE-1 : 0] r_rx_size;
+    logic              [1 : 0] r_rx_dsize;
     logic                      r_rx_continuous;
     logic                      r_rx_en;
     logic                      r_rx_clr;
 
     logic [L2_AWIDTH_NOAL-1:0] r_tx_startaddr;
     logic   [TRANS_SIZE-1 : 0] r_tx_size;
+    logic              [1 : 0] r_tx_dsize;
     logic                      r_tx_continuous;
     logic                      r_tx_en;
     logic                      r_tx_clr;
 
-    logic                      r_uart_en_tx;
-    logic                      r_uart_en_rx;
-    logic               [15:0] r_uart_div;
-    logic                      r_uart_stop_bits;
-    logic                [1:0] r_uart_bits;
-    logic                      r_uart_parity_en;
-
     logic                [4:0] s_wr_addr;
     logic                [4:0] s_rd_addr;
+
+    logic                      s_setup_rx_en;
+    logic                      s_setup_tx_en;
+
+    logic               [31:0] s_decoded_addr;
+    logic               [21:0] s_decoded_size;
+    logic                [1:0] s_decoded_dsize;
+
+    logic                      s_setup_valid;
+    logic                      r_setup_valid_dly;
+
+    assign s_decoded_addr  = setup_value_i[SETUP_ADDR_BEGIN:SETUP_ADDR_END];
+    assign s_decoded_size  = setup_value_i[SETUP_SIZE_BEGIN:SETUP_SIZE_END];
+    assign s_decoded_dsize = setup_value_i[SETUP_DSIZE_BEGIN:SETUP_DSIZE_END];
 
     assign s_wr_addr = (cfg_valid_i & ~cfg_rwn_i) ? cfg_addr_i : 5'h0;
     assign s_rd_addr = (cfg_valid_i &  cfg_rwn_i) ? cfg_addr_i : 5'h0;
 
     assign cfg_rx_startaddr_o  = r_rx_startaddr;
     assign cfg_rx_size_o       = r_rx_size;
+    assign cfg_rx_dsize_o      = r_rx_dsize;
     assign cfg_rx_continuous_o = r_rx_continuous;
-    assign cfg_rx_en_o         = r_rx_en;
+    assign cfg_rx_en_o         = r_rx_en | s_setup_rx_en;
     assign cfg_rx_clr_o        = r_rx_clr;
 
     assign cfg_tx_startaddr_o  = r_tx_startaddr;
     assign cfg_tx_size_o       = r_tx_size;
+    assign cfg_tx_dsize_o      = r_tx_dsize;
     assign cfg_tx_continuous_o = r_tx_continuous;
-    assign cfg_tx_en_o         = r_tx_en;
+    assign cfg_tx_en_o         = r_tx_en | s_setup_tx_en;
     assign cfg_tx_clr_o        = r_tx_clr;
+
+    edge_propagator_rx i_edge_rx (
+        .clk_i   ( clk_i ),
+        .rstn_i  ( rstn_i ),
+        .valid_i ( setup_valid_i ),
+        .ack_o   ( setup_ack_o ),
+        .valid_o ( s_setup_valid )
+    );
+
+    assign s_setup_rx_en = r_setup_valid_dly & !setup_value_i[SETUP_TXRXN];
+    assign s_setup_tx_en = r_setup_valid_dly &  setup_value_i[SETUP_TXRXN];
 
     always_ff @(posedge clk_i, negedge rstn_i) 
     begin
@@ -112,20 +149,17 @@ module udma_jtag_fifo_reg_if #(
             // SPI REGS
             r_rx_startaddr     <=  'h0;
             r_rx_size          <=  'h0;
+            r_rx_dsize         <=  'h0;
             r_rx_continuous    <=  'h0;
             r_rx_en             =  'h0;
             r_rx_clr            =  'h0;
             r_tx_startaddr     <=  'h0;
             r_tx_size          <=  'h0;
+            r_tx_dsize         <=  'h0;
             r_tx_continuous    <=  'h0;
             r_tx_en             =  'h0;
             r_tx_clr            =  'h0;
-            r_uart_div         <=  'h0;
-            r_uart_stop_bits   <=  'h0;
-            r_uart_bits        <=  'h0;
-            r_uart_parity_en   <=  'h0;
-            r_uart_en_tx       <=  'h0;
-            r_uart_en_rx       <=  'h0;
+            r_setup_valid_dly  <=  'h0;
         end
         else
         begin
@@ -134,41 +168,49 @@ module udma_jtag_fifo_reg_if #(
             r_tx_en   =  'h0;
             r_tx_clr  =  'h0;
 
+            r_setup_valid_dly <= s_setup_valid;
+
             if (cfg_valid_i & ~cfg_rwn_i)
             begin
                 case (s_wr_addr)
-                `REG_RX_SADDR:
-                    r_rx_startaddr    <= cfg_data_i[L2_AWIDTH_NOAL-1:0];
-                `REG_RX_SIZE:
-                    r_rx_size         <= cfg_data_i[TRANS_SIZE-1:0];
-                `REG_RX_CFG:
-                begin
-                    r_rx_clr           = cfg_data_i[5];
-                    r_rx_en            = cfg_data_i[4];
-                    r_rx_continuous   <= cfg_data_i[0];
-                end
-                `REG_TX_SADDR:
-                    r_tx_startaddr    <= cfg_data_i[L2_AWIDTH_NOAL-1:0];
-                `REG_TX_SIZE:
-                    r_tx_size         <= cfg_data_i[TRANS_SIZE-1:0];
-                `REG_TX_CFG:
-                begin
-                    r_tx_clr           = cfg_data_i[5];
-                    r_tx_en            = cfg_data_i[4];
-                    r_tx_continuous   <= cfg_data_i[0];
-                end
-
-                `REG_UART_SETUP:
-                begin
-                    r_uart_div        <= cfg_data_i[31:16];
-                    r_uart_en_tx      <= cfg_data_i[8];
-                    r_uart_en_rx      <= cfg_data_i[9];
-                    r_uart_stop_bits  <= cfg_data_i[3];
-                    r_uart_bits       <= cfg_data_i[2:1];
-                    r_uart_parity_en  <= cfg_data_i[0];
-                end
-
+                    `REG_RX_SADDR:
+                        r_rx_startaddr    <= cfg_data_i[L2_AWIDTH_NOAL-1:0];
+                    `REG_RX_SIZE:
+                        r_rx_size         <= cfg_data_i[TRANS_SIZE-1:0];
+                    `REG_RX_CFG:
+                    begin
+                        r_rx_clr           = cfg_data_i[5];
+                        r_rx_en            = cfg_data_i[4];
+                        r_rx_dsize        <= cfg_data_i[2:1];
+                        r_rx_continuous   <= cfg_data_i[0];
+                    end
+                    `REG_TX_SADDR:
+                        r_tx_startaddr    <= cfg_data_i[L2_AWIDTH_NOAL-1:0];
+                    `REG_TX_SIZE:
+                        r_tx_size         <= cfg_data_i[TRANS_SIZE-1:0];
+                    `REG_TX_CFG:
+                    begin
+                        r_tx_clr           = cfg_data_i[5];
+                        r_tx_en            = cfg_data_i[4];
+                        r_tx_dsize        <= cfg_data_i[2:1];
+                        r_tx_continuous   <= cfg_data_i[0];
+                    end
                 endcase
+            end
+            else if(s_setup_valid)
+            begin
+                if(setup_value_i[SETUP_TXRXN])
+                begin
+                    r_tx_startaddr    <= s_decoded_addr[L2_AWIDTH_NOAL-1:0];
+                    r_tx_size         <= s_decoded_size[TRANS_SIZE-1:0];
+                    r_tx_dsize        <= s_decoded_dsize;
+                end
+                else
+                begin
+                    r_rx_startaddr    <= s_decoded_addr[L2_AWIDTH_NOAL-1:0];
+                    r_rx_size         <= s_decoded_size[TRANS_SIZE-1:0];
+                    r_rx_dsize        <= s_decoded_dsize;
+                end
             end
         end
     end //always
@@ -189,8 +231,6 @@ module udma_jtag_fifo_reg_if #(
             cfg_data_o[TRANS_SIZE-1:0] = cfg_tx_bytes_left_i;
         `REG_TX_CFG:
             cfg_data_o = {26'h0,cfg_tx_pending_i,cfg_tx_en_i,3'h0,r_tx_continuous};
-        `REG_UART_SETUP:
-            cfg_data_o = {r_uart_div, 6'h0, r_uart_en_rx, r_uart_en_tx, 4'h0, r_uart_stop_bits,r_uart_bits, r_uart_parity_en};
         default:
             cfg_data_o = 'h0;
         endcase

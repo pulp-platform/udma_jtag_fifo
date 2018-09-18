@@ -34,6 +34,8 @@ module udma_jtag_fifo_top #(
     input  logic                      jtag_update_dr_i,
     input  logic                      jtag_capture_dr_i,
 
+    input  logic                      jtag_fifo_sel_i,
+
 	input  logic               [31:0] cfg_data_i,
 	input  logic                [4:0] cfg_addr_i,
 	input  logic                      cfg_valid_i,
@@ -74,6 +76,7 @@ module udma_jtag_fifo_top #(
     input  logic                      data_rx_ready_i
 
 );
+    localparam CFG_WIDTH = 1+2+32+22;
 
     logic         s_data_tx_valid;
     logic         s_data_tx_ready;
@@ -85,12 +88,22 @@ module udma_jtag_fifo_top #(
     logic         s_data_rx_dc_ready;
     logic  [31:0] s_data_rx_dc;
 
-    assign data_rx_datasize_o = 'h0;
-    assign data_tx_datasize_o = 'h0;
+    logic      [CFG_WIDTH-1:0] s_setup_value;
+    logic                      s_setup_valid;
+    logic                      s_setup_ack;
+
+    logic         s_jtag_shift_dr;
+    logic         s_jtag_update_dr;
+    logic         s_jtag_capture_dr;
+
+    assign s_jtag_shift_dr   = jtag_fifo_sel_i & jtag_shift_dr_i; 
+    assign s_jtag_update_dr  = jtag_fifo_sel_i & jtag_update_dr_i; 
+    assign s_jtag_capture_dr = jtag_fifo_sel_i & jtag_capture_dr_i;
 
     udma_jtag_fifo_reg_if #(
         .L2_AWIDTH_NOAL(L2_AWIDTH_NOAL),
-        .TRANS_SIZE(TRANS_SIZE)
+        .TRANS_SIZE(TRANS_SIZE),
+        .CFG_WIDTH(CFG_WIDTH)
     ) u_reg_if (
         .clk_i              ( sys_clk_i           ),
         .rstn_i             ( rstn_i              ),
@@ -102,8 +115,13 @@ module udma_jtag_fifo_top #(
         .cfg_ready_o        ( cfg_ready_o         ),
         .cfg_data_o         ( cfg_data_o          ),
 
+        .setup_value_i      ( s_setup_value ),
+        .setup_valid_i      ( s_setup_valid ),
+        .setup_ack_o        ( s_setup_ack ),
+
         .cfg_rx_startaddr_o ( cfg_rx_startaddr_o  ),
         .cfg_rx_size_o      ( cfg_rx_size_o       ),
+        .cfg_rx_dsize_o     ( data_rx_datasize_o  ),
         .cfg_rx_continuous_o( cfg_rx_continuous_o ),
         .cfg_rx_en_o        ( cfg_rx_en_o         ),
         .cfg_rx_clr_o       ( cfg_rx_clr_o        ),
@@ -114,6 +132,7 @@ module udma_jtag_fifo_top #(
 
         .cfg_tx_startaddr_o ( cfg_tx_startaddr_o  ),
         .cfg_tx_size_o      ( cfg_tx_size_o       ),
+        .cfg_tx_dsize_o     ( data_tx_datasize_o  ),
         .cfg_tx_continuous_o( cfg_tx_continuous_o ),
         .cfg_tx_en_o        ( cfg_tx_en_o         ),
         .cfg_tx_clr_o       ( cfg_tx_clr_o        ),
@@ -169,16 +188,21 @@ module udma_jtag_fifo_top #(
         .dst_ready_i  ( data_rx_ready_i    )
     );
 
-    udma_jtag_fifo_sm i_jtag_fifo_sm
-    (
+    udma_jtag_fifo_sm #(
+        .CFG_WIDTH(CFG_WIDTH)
+    ) i_jtag_fifo_sm (
         .jtag_tck_i       ( jtag_tck_i        ),
         .jtag_tdi_i       ( jtag_tdi_i        ),
         .jtag_tdo_o       ( jtag_tdo_o        ),
         .jtag_trstn_i     ( jtag_trstn_i      ),
 
-        .jtag_shift_dr_i  ( jtag_shift_dr_i   ),
-        .jtag_update_dr_i ( jtag_update_dr_i  ),
-        .jtag_capture_dr_i( jtag_capture_dr_i ),
+        .jtag_shift_dr_i  ( s_jtag_shift_dr   ),
+        .jtag_update_dr_i ( s_jtag_update_dr  ),
+        .jtag_capture_dr_i( s_jtag_capture_dr ),
+
+        .cfg_value_o ( s_setup_value ),
+        .cfg_valid_o ( s_setup_valid ),
+        .cfg_ack_i   ( s_setup_ack ),
 
         .data_rx_o        ( s_data_rx_dc       ),
         .data_rx_valid_o  ( s_data_rx_dc_valid ),
@@ -191,4 +215,4 @@ module udma_jtag_fifo_top #(
 
 
 
-endmodule // udma_uart_top
+endmodule 
