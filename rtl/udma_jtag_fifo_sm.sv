@@ -350,9 +350,9 @@ module udma_jtag_fifo_sm #(
                 r_tx_shiftreg <= s_tx_shiftreg;
             if(s_update_size)
             begin
-                r_is_8b  = s_is_8b;
-                r_is_16b = s_is_16b;
-                r_is_32b = s_is_32b;
+                r_is_8b  <= s_is_8b;
+                r_is_16b <= s_is_16b;
+                r_is_32b <= s_is_32b;
             end
         end
     end
