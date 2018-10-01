@@ -128,6 +128,7 @@ module udma_jtag_fifo_sm #(
         s_rx_shiftreg  = r_rx_shiftreg;
         s_tx_shiftreg  = r_tx_shiftreg;
         s_update_rx_sr = 1'b0;
+        s_update_tx_sr = 1'b0;
         s_is_8b        = 1'b0;
         s_is_16b       = 1'b0;
         s_is_32b       = 1'b0;
